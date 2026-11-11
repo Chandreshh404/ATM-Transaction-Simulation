@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ATM Transaction Simulation - secure fund transfer demo">
+    <title>ATM Transaction Simulation | Fund Transfer</title>
+    <style>
+        :root { color-scheme: light; --ink:#18212f; --muted:#667085; --line:#e4e7ec; --surface:#fff; --page:#f4f6f8; --accent:#263b57; }
+        * { box-sizing:border-box; }
+        body { margin:0; min-height:100vh; padding:32px 16px; background:var(--page); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+        main { width:min(100%,560px); margin:36px auto; }
+        .eyebrow { margin:0 0 8px; color:var(--muted); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+        h1 { margin:0; font-size:clamp(26px,5vw,34px); letter-spacing:-.03em; }
+        .intro { margin:8px 0 24px; color:var(--muted); }
+        .panel { padding:26px; border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 8px 28px #18212f0a; }
+        label { display:block; margin:16px 0 6px; font-weight:650; }
+        input { width:100%; min-height:46px; padding:10px 12px; border:1px solid #cfd5dd; border-radius:8px; background:#fff; color:var(--ink); font:inherit; }
+        input:focus { outline:3px solid #263b5722; border-color:var(--accent); }
+        button { width:100%; min-height:48px; margin-top:22px; border:0; border-radius:8px; background:var(--accent); color:white; font:inherit; font-weight:700; cursor:pointer; }
+        button:disabled { opacity:.6; cursor:wait; }
+        .balance { margin-top:20px; padding:15px 16px; border-radius:10px; background:#f2f4f7; }
+        .balance span { display:block; color:var(--muted); font-size:13px; }
+        .balance strong { display:block; margin-top:2px; font-size:24px; }
+        #transferStatus { min-height:24px; margin:16px 0 0; font-weight:650; }
+        #transferStatus.success { color:#16803c; }
+        #transferStatus.error { color:#c12b2b; }
+        .note { margin:16px 0 0; color:var(--muted); font-size:12px; }
+    </style>
+</head>
+<body>
+    <main>
+        <p class="eyebrow">ATM Transaction Simulation</p>
+        <h1>Fund transfer</h1>
+        <p class="intro">Transfer simulated funds to another active ATM account.</p>
+
+        <section class="panel" aria-labelledby="transferHeading">
+            <h2 id="transferHeading">Transfer details</h2>
+            <form id="transferForm">
+                <label for="sessionToken">Session token</label>
+                <input id="sessionToken" name="sessionToken" type="password"
+                       autocomplete="off" placeholder="Paste the token received after login" required>
+
+                <label for="targetAccount">Receiver account number</label>
+                <input id="targetAccount" name="targetAccount" type="text"
+                       inputmode="numeric" pattern="[0-9]+" maxlength="32"
+                       placeholder="Enter receiver account number" required>
+
+                <label for="transferAmount">Amount (₹)</label>
+                <input id="transferAmount" name="amount" type="number"
+                       min="0.01" step="0.01" inputmode="decimal"
+                       placeholder="e.g. 250.00" required>
+
+                <button id="transferButton" type="submit">Transfer funds</button>
+            </form>
+
+            <div class="balance" aria-live="polite">
+                <span>Updated available balance</span>
+                <strong id="currentBalance">—</strong>
+            </div>
+            <p id="transferStatus" role="status" aria-live="polite"></p>
+            <p class="note">Simulation only. No real money or banking network is involved.</p>
+        </section>
+    </main>
+    <script src="js/app.js" defer></script>
+</body>
+</html>
