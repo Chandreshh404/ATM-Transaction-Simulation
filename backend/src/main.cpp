@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdlib>
+#include <string>
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
@@ -825,7 +827,24 @@ server.Get("/api/auth/validate",
     std::cout << "Authentication service initialized.\n";
     std::cout << "Session manager initialized.\n";
 
-    std::cout << "Server: http://localhost:8080\n";
+    const char* portEnvironmentValue = std::getenv("PORT");
+    int serverPort = 8080;
+
+    if (portEnvironmentValue != nullptr && *portEnvironmentValue != '\0') {
+        try {
+            serverPort = std::stoi(portEnvironmentValue);
+        } catch (const std::exception&) {
+            std::cerr << "Invalid PORT environment variable." << std::endl;
+            return 1;
+        }
+    }
+
+    if (serverPort < 1 || serverPort > 65535) {
+        std::cerr << "PORT must be between 1 and 65535." << std::endl;
+        return 1;
+    }
+
+    std::cout << "Listening on 0.0.0.0:" << serverPort << "\n";
 
     std::cout << "\nAvailable API endpoints:\n";
     std::cout << "GET  /api/health\n";
@@ -839,7 +858,7 @@ server.Get("/api/auth/validate",
     std::cout << "POST /api/withdraw\n";
     std::cout << "GET  /api/transactions\n";
 
-    if (!server.listen("127.0.0.1", 8080)) {
+    if (!server.listen("0.0.0.0", serverPort)) {
         std::cerr << "Failed to start server." << std::endl;
         return 1;
     }

@@ -1,0 +1,14 @@
+.git
+.venv
+.vscode
+.idea
+build
+**/build
+ATM_Project_Source.zip
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.log
+
+*.zip
