@@ -1,67 +1,478 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ATM Transaction Simulation - secure fund transfer demo">
-    <title>ATM Transaction Simulation | Fund Transfer</title>
+    <meta name="description" content="ATM Transaction Simulation">
+    <title>ATM Transaction Simulation</title>
+
     <style>
-        :root { color-scheme: light; --ink:#18212f; --muted:#667085; --line:#e4e7ec; --surface:#fff; --page:#f4f6f8; --accent:#263b57; }
-        * { box-sizing:border-box; }
-        body { margin:0; min-height:100vh; padding:32px 16px; background:var(--page); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
-        main { width:min(100%,560px); margin:36px auto; }
-        .eyebrow { margin:0 0 8px; color:var(--muted); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
-        h1 { margin:0; font-size:clamp(26px,5vw,34px); letter-spacing:-.03em; }
-        .intro { margin:8px 0 24px; color:var(--muted); }
-        .panel { padding:26px; border:1px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:0 8px 28px #18212f0a; }
-        label { display:block; margin:16px 0 6px; font-weight:650; }
-        input { width:100%; min-height:46px; padding:10px 12px; border:1px solid #cfd5dd; border-radius:8px; background:#fff; color:var(--ink); font:inherit; }
-        input:focus { outline:3px solid #263b5722; border-color:var(--accent); }
-        button { width:100%; min-height:48px; margin-top:22px; border:0; border-radius:8px; background:var(--accent); color:white; font:inherit; font-weight:700; cursor:pointer; }
-        button:disabled { opacity:.6; cursor:wait; }
-        .balance { margin-top:20px; padding:15px 16px; border-radius:10px; background:#f2f4f7; }
-        .balance span { display:block; color:var(--muted); font-size:13px; }
-        .balance strong { display:block; margin-top:2px; font-size:24px; }
-        #transferStatus { min-height:24px; margin:16px 0 0; font-weight:650; }
-        #transferStatus.success { color:#16803c; }
-        #transferStatus.error { color:#c12b2b; }
-        .note { margin:16px 0 0; color:var(--muted); font-size:12px; }
+        :root {
+            --primary: #1d3557;
+            --primary-light: #eaf0f7;
+            --background: #f4f6fa;
+            --surface: #ffffff;
+            --text: #192333;
+            --muted: #718096;
+            --border: #e3e8ef;
+            --success: #16834a;
+            --danger: #c03939;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--background);
+            color: var(--text);
+            font: 15px/1.5 system-ui, sans-serif;
+        }
+
+        button, input { font: inherit; }
+
+        button { cursor: pointer; }
+
+        .hidden { display: none !important; }
+
+        .auth-container {
+            width: min(100% - 32px, 440px);
+            margin: 70px auto;
+        }
+
+        .brand {
+            color: var(--primary);
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        h1 { font-size: 30px; margin: 8px 0; }
+        h2 { font-size: 21px; margin-top: 0; }
+        h3 { font-size: 17px; }
+
+        .muted { color: var(--muted); }
+
+        .panel {
+            padding: 25px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 8px 28px #18212f0a;
+        }
+
+        label {
+            display: block;
+            margin: 15px 0 6px;
+            font-weight: 650;
+        }
+
+        input {
+            width: 100%;
+            min-height: 45px;
+            padding: 10px 12px;
+            border: 1px solid #cbd3df;
+            border-radius: 8px;
+            background: white;
+            color: var(--text);
+        }
+
+        input:focus {
+            outline: 3px solid #1d355722;
+            border-color: var(--primary);
+        }
+
+        .btn {
+            min-height: 44px;
+            padding: 10px 17px;
+            border: 0;
+            border-radius: 8px;
+            background: var(--primary);
+            color: white;
+            font-weight: 700;
+        }
+
+        .btn:hover { opacity: .9; }
+
+        .btn:disabled {
+            opacity: .6;
+            cursor: wait;
+        }
+
+        .btn-secondary {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .btn-danger { background: var(--danger); }
+
+        .full-width { width: 100%; margin-top: 22px; }
+
+        .switch-auth {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .link-button {
+            padding: 0;
+            border: 0;
+            background: none;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .status {
+            min-height: 24px;
+            margin: 14px 0 0;
+            font-weight: 600;
+        }
+
+        .status.success { color: var(--success); }
+        .status.error { color: var(--danger); }
+
+        /* Dashboard */
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 5%;
+            background: white;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .app-header .brand { font-size: 14px; }
+
+        .dashboard {
+            width: min(1100px, 92%);
+            margin: 35px auto;
+        }
+
+        .welcome {
+            margin-bottom: 24px;
+        }
+
+        .account-card {
+            padding: 27px;
+            border-radius: 15px;
+            background: var(--primary);
+            color: white;
+        }
+
+        .account-card .muted { color: #d4deea; }
+
+        .account-balance {
+            margin: 12px 0;
+            font-size: clamp(30px, 6vw, 42px);
+            font-weight: 800;
+        }
+
+        .account-number {
+            letter-spacing: 2px;
+            font-size: 16px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 13px;
+            margin: 24px 0;
+        }
+
+        .action-button {
+            min-height: 75px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .action-button:hover {
+            background: var(--primary-light);
+        }
+
+        .content-panel { margin-top: 20px; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .form-actions button { flex: 1; }
+
+        .table-wrapper { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 13px 10px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .transaction-credit { color: var(--success); }
+        .transaction-debit { color: var(--danger); }
+
+        @media (max-width: 650px) {
+            .action-grid { grid-template-columns: repeat(2, 1fr); }
+            .form-row { grid-template-columns: 1fr; }
+            .app-header { padding: 15px 4%; }
+            .dashboard { margin-top: 22px; }
+            .panel { padding: 19px; }
+        }
     </style>
 </head>
+
 <body>
-    <main>
-        <p class="eyebrow">ATM Transaction Simulation</p>
-        <h1>Fund transfer</h1>
-        <p class="intro">Transfer simulated funds to another active ATM account.</p>
 
-        <section class="panel" aria-labelledby="transferHeading">
-            <h2 id="transferHeading">Transfer details</h2>
-            <form id="transferForm">
-                <label for="sessionToken">Session token</label>
-                <input id="sessionToken" name="sessionToken" type="password"
-                       autocomplete="off" placeholder="Paste the token received after login" required>
+    <!-- LOGIN -->
+    <main id="loginView" class="auth-container">
+        <p class="brand">ATM Transaction Simulation</p>
+        <h1>Welcome back</h1>
+        <p class="muted">Sign in to access your ATM account.</p>
 
-                <label for="targetAccount">Receiver account number</label>
-                <input id="targetAccount" name="targetAccount" type="text"
-                       inputmode="numeric" pattern="[0-9]+" maxlength="32"
-                       placeholder="Enter receiver account number" required>
+        <section class="panel">
+            <h2>Login</h2>
 
-                <label for="transferAmount">Amount (₹)</label>
-                <input id="transferAmount" name="amount" type="number"
-                       min="0.01" step="0.01" inputmode="decimal"
-                       placeholder="e.g. 250.00" required>
+            <form id="loginForm">
+                <label for="loginEmail">Email address</label>
+                <input id="loginEmail" type="email" required
+                       autocomplete="username">
 
-                <button id="transferButton" type="submit">Transfer funds</button>
+                <label for="loginPin">ATM PIN</label>
+                <input id="loginPin" type="password" required
+                       inputmode="numeric" maxlength="6"
+                       pattern="[0-9]{6}" autocomplete="current-password">
+
+                <button class="btn full-width" type="submit">
+                    Login
+                </button>
             </form>
 
-            <div class="balance" aria-live="polite">
-                <span>Updated available balance</span>
-                <strong id="currentBalance">—</strong>
-            </div>
-            <p id="transferStatus" role="status" aria-live="polite"></p>
-            <p class="note">Simulation only. No real money or banking network is involved.</p>
+            <p id="loginStatus" class="status" role="status"></p>
+
+            <p class="switch-auth">
+                New customer?
+                <button id="showRegister" class="link-button" type="button">
+                    Create account
+                </button>
+            </p>
         </section>
     </main>
+
+    <!-- REGISTRATION -->
+    <main id="registerView" class="auth-container hidden">
+        <p class="brand">ATM Transaction Simulation</p>
+        <h1>Create account</h1>
+        <p class="muted">Register for your simulated ATM account.</p>
+
+        <section class="panel">
+            <h2>Registration</h2>
+
+            <form id="registerForm">
+                <label for="registerName">Full name</label>
+                <input id="registerName" type="text" required
+                       maxlength="100" autocomplete="name">
+
+                <label for="registerEmail">Email address</label>
+                <input id="registerEmail" type="email" required
+                       autocomplete="email">
+
+                <label for="registerPin">Create 6-digit PIN</label>
+                <input id="registerPin" type="password" required
+                       inputmode="numeric" maxlength="6"
+                       pattern="[0-9]{6}" autocomplete="new-password">
+
+                <button class="btn full-width" type="submit">
+                    Create account
+                </button>
+            </form>
+
+            <p id="registerStatus" class="status" role="status"></p>
+
+            <p class="switch-auth">
+                Already registered?
+                <button id="showLogin" class="link-button" type="button">
+                    Login
+                </button>
+            </p>
+        </section>
+    </main>
+
+    <!-- DASHBOARD -->
+    <div id="dashboardView" class="hidden">
+
+        <header class="app-header">
+            <p class="brand">ATM Simulation</p>
+            <button id="logoutButton" class="btn btn-secondary" type="button">
+                Logout
+            </button>
+        </header>
+
+        <main class="dashboard">
+            <section class="welcome">
+                <h1>Dashboard</h1>
+                <p class="muted">
+                    Manage your account and transactions.
+                </p>
+            </section>
+
+            <section class="account-card">
+                <p class="muted">Available balance</p>
+                <div id="dashboardBalance" class="account-balance">
+                    ₹0.00
+                </div>
+                <p class="muted">Account number</p>
+                <div id="dashboardAccount" class="account-number">
+                    —
+                </div>
+                <p id="dashboardName" class="muted"></p>
+                <button id="refreshBalance" class="btn btn-secondary"
+                        type="button">
+                    Refresh balance
+                </button>
+            </section>
+
+            <nav class="action-grid" aria-label="ATM operations">
+                <button class="action-button" data-view="depositView"
+                        type="button">Deposit</button>
+                <button class="action-button" data-view="withdrawView"
+                        type="button">Withdraw</button>
+                <button class="action-button" data-view="transferView"
+                        type="button">Transfer</button>
+                <button class="action-button" data-view="historyView"
+                        type="button">History</button>
+            </nav>
+
+            <p id="dashboardStatus" class="status" role="status"></p>
+
+            <!-- DEPOSIT -->
+            <section id="depositView" class="panel content-panel hidden">
+                <h2>Deposit money</h2>
+                <p class="muted">Add funds to your account.</p>
+
+                <form id="depositForm">
+                    <label for="depositAmount">Amount (₹)</label>
+                    <input id="depositAmount" type="number"
+                           min="0.01" step="0.01" required>
+
+                    <div class="form-actions">
+                        <button class="btn" type="submit">Deposit</button>
+                        <button class="btn btn-secondary"
+                                data-back type="button">Cancel</button>
+                    </div>
+                </form>
+
+                <p id="depositStatus" class="status" role="status"></p>
+            </section>
+
+            <!-- WITHDRAW -->
+            <section id="withdrawView" class="panel content-panel hidden">
+                <h2>Withdraw money</h2>
+                <p class="muted">Withdraw funds from your account.</p>
+
+                <form id="withdrawForm">
+                    <label for="withdrawAmount">Amount (₹)</label>
+                    <input id="withdrawAmount" type="number"
+                           min="0.01" step="0.01" required>
+
+                    <div class="form-actions">
+                        <button class="btn" type="submit">Withdraw</button>
+                        <button class="btn btn-secondary"
+                                data-back type="button">Cancel</button>
+                    </div>
+                </form>
+
+                <p id="withdrawStatus" class="status" role="status"></p>
+            </section>
+
+            <!-- TRANSFER -->
+            <section id="transferView" class="panel content-panel hidden">
+                <h2>Transfer money</h2>
+                <p class="muted">Transfer funds to another active account.</p>
+
+                <form id="transferForm">
+                    <label for="targetAccount">Receiver account number</label>
+                    <input id="targetAccount" type="text"
+                           inputmode="numeric" pattern="[0-9]+"
+                           maxlength="32" required>
+
+                    <label for="transferAmount">Amount (₹)</label>
+                    <input id="transferAmount" type="number"
+                           min="0.01" step="0.01" required>
+
+                    <div class="form-actions">
+                        <button class="btn" type="submit">Transfer</button>
+                        <button class="btn btn-secondary"
+                                data-back type="button">Cancel</button>
+                    </div>
+                </form>
+
+                <p id="transferStatus" class="status" role="status"></p>
+            </section>
+
+            <!-- TRANSACTION HISTORY -->
+            <section id="historyView" class="panel content-panel hidden">
+                <h2>Transaction history</h2>
+                <p class="muted">Your latest account transactions.</p>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Related account</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody">
+                            <tr>
+                                <td colspan="4">No transactions loaded.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="form-actions">
+                    <button id="loadHistory" class="btn" type="button">
+                        Refresh history
+                    </button>
+                    <button class="btn btn-secondary"
+                            data-back type="button">Back</button>
+                </div>
+
+                <p id="historyStatus" class="status" role="status"></p>
+            </section>
+
+            <p class="muted">
+                Simulation only. No real money or banking network is involved.
+            </p>
+        </main>
+    </div>
+
     <script src="js/app.js" defer></script>
 </body>
 </html>

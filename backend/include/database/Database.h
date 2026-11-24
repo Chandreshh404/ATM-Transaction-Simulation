@@ -1,3 +1,4 @@
+
 #ifndef DATABASE_H
 #define DATABASE_H
 
@@ -5,12 +6,42 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <vector>
 
 struct TransferResult {
     bool success = false;
     bool clientError = false;
     std::string message;
     std::int64_t senderBalancePaise = 0;
+};
+
+struct AccountBalance {
+    bool success = false;
+    std::string message;
+    std::string accountNumber;
+    std::int64_t balancePaise = 0;
+};
+
+struct TransactionRecord {
+    std::int64_t id = 0;
+    std::string transactionType;
+    std::int64_t amountPaise = 0;
+    std::string relatedAccountNumber;
+    std::string description;
+    std::string createdAt;
+};
+
+struct TransactionHistory {
+    bool success = false;
+    std::string message;
+    std::vector<TransactionRecord> transactions;
+};
+
+struct MoneyOperationResult {
+    bool success = false;
+    bool clientError = false;
+    std::string message;
+    std::int64_t balancePaise = 0;
 };
 
 class Database {
@@ -34,10 +65,26 @@ public:
     sqlite3* getConnection();
     std::mutex& getMutex();
 
-    // Returns the active account number belonging to this authenticated user.
     std::string getAccountNumberForUser(int userId);
 
-    // amountPaise is an integer number of paise, never a floating-point rupee value.
+    AccountBalance getAccountBalance(int userId);
+
+    MoneyOperationResult depositFunds(
+        int userId,
+        std::int64_t amountPaise
+    );
+
+    MoneyOperationResult withdrawFunds(
+        int userId,
+        std::int64_t amountPaise
+    );
+
+    TransactionHistory getTransactionHistory(
+        int userId,
+        int limit,
+        int offset
+    );
+
     TransferResult transferFunds(
         const std::string& senderAcc,
         const std::string& receiverAcc,
