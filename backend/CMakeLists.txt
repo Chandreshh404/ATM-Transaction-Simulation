@@ -20,7 +20,7 @@ target_include_directories(atm_backend
 
 target_link_libraries(atm_backend
     PRIVATE
-    SQLite3::SQLite3
+    SQLite::SQLite3
     OpenSSL::Crypto
     Threads::Threads
 )
