@@ -171,7 +171,7 @@ loginForm.addEventListener('submit', async event => {
     sessionToken = result.sessionToken;
     accountNumber = result.accountNumber;
     userId = result.userId;
-    setCustomerIdentity(email.split('@')[0]);
+    setCustomerIdentity(result.fullName || email.split('@')[0]);
     dashboardAccount.textContent = accountNumber || '—';
     dashboardName.textContent = userId ?? '—';
     loginForm.reset();

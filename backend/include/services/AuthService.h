@@ -11,6 +11,7 @@ struct AuthResult {
     std::string message;
     int userId;
     std::string accountNumber;
+    std::string fullName;
 };
 
 class AuthService {

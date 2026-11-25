@@ -307,6 +307,7 @@ server.Post("/api/auth/login",
             {"message", "Login successful."},
             {"userId", result.userId},
             {"accountNumber", result.accountNumber},
+            {"fullName", result.fullName},
             {"sessionToken", token},
             {"expiresInSeconds", 900}
         };

@@ -244,12 +244,12 @@ AuthResult AuthService::registerUser(
 }
 
 
-// USER LOGIN WITH FAILED-ATTEMPT TRACKING
+
+ // USER LOGIN WITH FAILED-ATTEMPT TRACKING
 AuthResult AuthService::loginUser(
     const std::string& email,
     const std::string& pin
 ) {
-    // Protect the complete database operation.
     std::lock_guard<std::mutex> lock(database.getMutex());
 
     sqlite3* db = database.getConnection();
@@ -289,11 +289,7 @@ AuthResult AuthService::loginUser(
         "SELECT locked_until FROM login_attempts WHERE email = ?;";
 
     if (sqlite3_prepare_v2(
-            db,
-            lockSQL,
-            -1,
-            &lockStatement,
-            nullptr
+            db, lockSQL, -1, &lockStatement, nullptr
         ) != SQLITE_OK) {
 
         return {false, "Login operation failed.", -1, ""};
@@ -334,11 +330,7 @@ AuthResult AuthService::loginUser(
                 "DELETE FROM login_attempts WHERE email = ?;";
 
             if (sqlite3_prepare_v2(
-                    db,
-                    resetSQL,
-                    -1,
-                    &resetStatement,
-                    nullptr
+                    db, resetSQL, -1, &resetStatement, nullptr
                 ) != SQLITE_OK) {
 
                 return {false, "Login operation failed.", -1, ""};
@@ -371,18 +363,14 @@ AuthResult AuthService::loginUser(
     }
 
 
-    // STEP 2: Retrieve the stored PIN hash.
+    // STEP 2: Retrieve user ID, full name and stored PIN hash.
     sqlite3_stmt* userStatement = nullptr;
 
     const char* userSQL =
-        "SELECT id, pin_hash FROM users WHERE email = ?;";
+        "SELECT id, full_name, pin_hash FROM users WHERE email = ?;";
 
     if (sqlite3_prepare_v2(
-            db,
-            userSQL,
-            -1,
-            &userStatement,
-            nullptr
+            db, userSQL, -1, &userStatement, nullptr
         ) != SQLITE_OK) {
 
         return {false, "Login operation failed.", -1, ""};
@@ -400,13 +388,21 @@ AuthResult AuthService::loginUser(
 
     int userId = -1;
     std::string storedHash;
+    std::string fullName;
 
     if (userResult == SQLITE_ROW) {
 
         userId = sqlite3_column_int(userStatement, 0);
 
-        const unsigned char* hashText =
+        const unsigned char* nameText =
             sqlite3_column_text(userStatement, 1);
+
+        if (nameText != nullptr) {
+            fullName = reinterpret_cast<const char*>(nameText);
+        }
+
+        const unsigned char* hashText =
+            sqlite3_column_text(userStatement, 2);
 
         if (hashText != nullptr) {
             storedHash = reinterpret_cast<const char*>(hashText);
@@ -451,11 +447,7 @@ AuthResult AuthService::loginUser(
             "updated_at = CURRENT_TIMESTAMP;";
 
         if (sqlite3_prepare_v2(
-                db,
-                attemptSQL,
-                -1,
-                &attemptStatement,
-                nullptr
+                db, attemptSQL, -1, &attemptStatement, nullptr
             ) != SQLITE_OK) {
 
             return {false, "Login operation failed.", -1, ""};
@@ -497,11 +489,7 @@ AuthResult AuthService::loginUser(
             "SELECT locked_until FROM login_attempts WHERE email = ?;";
 
         if (sqlite3_prepare_v2(
-                db,
-                checkSQL,
-                -1,
-                &checkStatement,
-                nullptr
+                db, checkSQL, -1, &checkStatement, nullptr
             ) != SQLITE_OK) {
 
             return {false, "Login operation failed.", -1, ""};
@@ -551,11 +539,7 @@ AuthResult AuthService::loginUser(
         "FROM accounts WHERE user_id = ? LIMIT 1;";
 
     if (sqlite3_prepare_v2(
-            db,
-            accountSQL,
-            -1,
-            &accountStatement,
-            nullptr
+            db, accountSQL, -1, &accountStatement, nullptr
         ) != SQLITE_OK) {
 
         return {false, "Could not retrieve account details.", -1, ""};
@@ -624,11 +608,7 @@ AuthResult AuthService::loginUser(
         "DELETE FROM login_attempts WHERE email = ?;";
 
     if (sqlite3_prepare_v2(
-            db,
-            clearSQL,
-            -1,
-            &clearStatement,
-            nullptr
+            db, clearSQL, -1, &clearStatement, nullptr
         ) != SQLITE_OK) {
 
         return {false, "Login operation failed.", -1, ""};
@@ -650,10 +630,13 @@ AuthResult AuthService::loginUser(
         return {false, "Login operation failed.", -1, ""};
     }
 
+
+    // STEP 8: Return the authenticated user's identity.
     return {
         true,
         "Login successful.",
         userId,
-        accountNumber
+        accountNumber,
+        fullName
     };
 }
