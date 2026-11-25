@@ -153,7 +153,7 @@ function buildTransactionRow(transaction) {
   dateCell.textContent = safeDate(transaction.createdAt);
   amountCell.textContent = `${isCredit ? '+' : '−'}${formatRupees(transaction.amount)}`;
   amountCell.className = isCredit ? 'transaction-credit' : 'transaction-debit align-right';
-  row.append(typeCell, relatedCell, dateCell, amountCell);
+  row.append(typeCell, amountCell, relatedCell, dateCell);
   return row;
 }
 
