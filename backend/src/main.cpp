@@ -6,6 +6,8 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
+#include <filesystem>
 #include <string>
 #include <httplib.h>
 #include <nlohmann/json.hpp>
@@ -13,26 +15,107 @@
 #include "database/Database.h"
 #include "services/AuthService.h"
 #include "security/SessionManager.h"
+#include <mutex>
+#include <sqlite3.h>
 
 using json = nlohmann::json;
+
+// Read an environment variable, falling back to a default when it is unset
+// or empty. Lets the same binary run locally and on Render.
+static std::string readEnvironment(const char* name, const std::string& fallback) {
+    const char* value = std::getenv(name);
+    return (value != nullptr && *value != '\0') ? std::string(value) : fallback;
+}
 
 int main() {
     Database database;
 
-    if (!database.connect("database/atm.db")) {
-        std::cerr << "Could not connect to ATM database." << std::endl;
+    // Paths default to the original local layout. On a host such as Render,
+    // DATABASE_PATH can point at a persistent disk (for example /var/data/atm.db).
+    const std::string databasePath = readEnvironment("DATABASE_PATH", "database/atm.db");
+    const std::string schemaPath = readEnvironment("SCHEMA_PATH", "database/schema.sql");
+
+    // SQLite creates the file but not its folder, so make sure the folder exists.
+    try {
+        const std::filesystem::path parent =
+            std::filesystem::path(databasePath).parent_path();
+        if (!parent.empty()) {
+            std::filesystem::create_directories(parent);
+        }
+    } catch (const std::exception& error) {
+        std::cerr << "Could not create database folder: " << error.what() << std::endl;
         return 1;
     }
 
-    if (!database.initializeSchema("database/schema.sql")) {
-        std::cerr << "Database initialization failed." << std::endl;
+    if (!database.connect(databasePath)) {
+        std::cerr << "Could not connect to ATM database at " << databasePath << std::endl;
+        return 1;
+    }
+
+    if (!database.initializeSchema(schemaPath)) {
+        std::cerr << "Database initialization failed (schema: " << schemaPath << ")." << std::endl;
         return 1;
     }
 
     AuthService authService(database);
     SessionManager sessionManager;
 
+    // Optional demo account. The free Render filesystem is wiped on every
+    // restart, so this keeps the live demo usable after a cold start.
+    // Synthetic data only: never use a real email or PIN here.
+    if (readEnvironment("SEED_DEMO_USER", "0") == "1") {
+        AuthResult demo = authService.registerUser(
+            "Demo Customer", "demo@nexusbank.test", "123456");
+        if (demo.success) {
+            database.depositFunds(demo.userId, 1000000); // INR 10,000.00 in paise
+            std::cout << "Demo account created: demo@nexusbank.test / PIN 123456\n";
+        }
+    }
+
     httplib::Server server;
+
+    // Every response (including 404s and errors) must carry CORS headers,
+    // otherwise the browser hides the real error behind "Failed to fetch".
+    server.set_post_routing_handler(
+        [](const httplib::Request&, httplib::Response& res) {
+        if (!res.has_header("Access-Control-Allow-Origin")) {
+            res.set_header("Access-Control-Allow-Origin", "*");
+        }
+    });
+
+    server.set_error_handler(
+        [](const httplib::Request&, httplib::Response& res) {
+        if (!res.has_header("Access-Control-Allow-Origin")) {
+            res.set_header("Access-Control-Allow-Origin", "*");
+        }
+        if (res.body.empty()) {
+            res.set_content(
+                json({{"status", "error"},
+                      {"message", "Endpoint not found or request failed."}}).dump(4),
+                "application/json");
+        }
+    });
+
+    server.set_exception_handler(
+        [](const httplib::Request&, httplib::Response& res, std::exception_ptr) {
+        res.status = 500;
+        if (!res.has_header("Access-Control-Allow-Origin")) {
+            res.set_header("Access-Control-Allow-Origin", "*");
+        }
+        res.set_content(
+            json({{"status", "error"},
+                  {"message", "Internal server error."}}).dump(4),
+            "application/json");
+    });
+
+    // Friendly landing response so opening the backend URL does not show a 404.
+    server.Get("/",
+        [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(
+            json({{"status", "success"},
+                  {"message", "Nexus Bank ATM API. Try /api/health"}}).dump(4),
+            "application/json");
+    });
 
     // Health check
     server.Get("/api/health",
@@ -49,13 +132,30 @@ int main() {
 
     // Database health check
     server.Get("/api/health/db",
-        [](const httplib::Request& req, httplib::Response& res) {
+        [&database](const httplib::Request& req, httplib::Response& res) {
+
+        // Run a real query instead of always claiming success.
+        bool healthy = false;
+        {
+            std::lock_guard<std::mutex> lock(database.getMutex());
+            sqlite3* connection = database.getConnection();
+            if (connection != nullptr) {
+                sqlite3_stmt* probe = nullptr;
+                if (sqlite3_prepare_v2(connection, "SELECT COUNT(*) FROM users;",
+                                       -1, &probe, nullptr) == SQLITE_OK) {
+                    healthy = (sqlite3_step(probe) == SQLITE_ROW);
+                }
+                if (probe != nullptr) sqlite3_finalize(probe);
+            }
+        }
 
         json response = {
-            {"status", "success"},
-            {"message", "SQLite database is connected and initialized"}
+            {"status", healthy ? "success" : "error"},
+            {"message", healthy
+                ? "SQLite database is connected and initialized"
+                : "SQLite database is not responding"}
         };
-
+        res.status = healthy ? 200 : 503;
         res.set_content(response.dump(4), "application/json");
     });
 
@@ -847,6 +947,7 @@ server.Get("/api/auth/validate",
     std::cout << "Listening on 0.0.0.0:" << serverPort << "\n";
 
     std::cout << "\nAvailable API endpoints:\n";
+    std::cout << "GET  /\n";
     std::cout << "GET  /api/health\n";
     std::cout << "GET  /api/health/db\n";
     std::cout << "POST /api/auth/register\n";

@@ -58,7 +58,7 @@ target_include_directories(database_test
 
 target_link_libraries(database_test
     PRIVATE
-    SQLite3::SQLite3
+    SQLite::SQLite3
 )
 
 target_compile_definitions(database_test

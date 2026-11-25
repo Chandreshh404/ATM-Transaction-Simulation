@@ -1,0 +1,21 @@
+# Render Blueprint: creates the backend and the frontend together.
+# New > Blueprint in the Render dashboard, then pick this repository.
+services:
+  - type: web
+    name: atm-transaction-simulation
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: SEED_DEMO_USER
+        value: "1"
+
+  - type: web
+    name: atm-frontend
+    runtime: static
+    staticPublishPath: ./frontend
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache

@@ -12,6 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(ATM_BUILD_TESTS "Build ATM automated tests" ON)
 
 find_package(OpenSSL REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 add_subdirectory(backend)
 

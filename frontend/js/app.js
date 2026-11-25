@@ -78,18 +78,45 @@ function requireSession() {
   if (!sessionToken) { logout(false); return false; }
   return true;
 }
-async function apiRequest(endpoint, options = {}) {
+// Free Render backends sleep after ~15 minutes idle and take up to a minute to
+// wake. Give the first request time and retry instead of failing immediately.
+const REQUEST_TIMEOUT_MS = 70000;
+const WAKE_RETRIES = 2;
+
+function fetchWithTimeout(url, options, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+// Ping the backend as soon as the page opens so it is already awake when the user signs in.
+function wakeBackend() {
+  fetchWithTimeout(`${API_BASE_URL}/api/health`, {}, REQUEST_TIMEOUT_MS).catch(() => {});
+}
+wakeBackend();
+
+async function apiRequest(endpoint, options = {}, statusId = null) {
   const headers = { ...(options.headers || {}) };
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+  const isRead = !options.method || options.method === 'GET';
   let response;
-  try {
-    response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
-  } catch (_) {
-    throw new Error('Cannot connect to the ATM backend. Please try again shortly.');
+  for (let attempt = 0; ; attempt++) {
+    try {
+      response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+      break;
+    } catch (_) {
+      // Only auto-retry reads and logins; never replay a money movement that may have succeeded.
+      const safeToRetry = isRead || endpoint === '/api/auth/login' || endpoint === '/api/auth/register';
+      if (!safeToRetry || attempt >= WAKE_RETRIES) {
+        throw new Error('Cannot connect to the ATM backend. The free server may be waking up - please try again in a minute.');
+      }
+      if (statusId) showStatus(statusId, 'Waking up the server, this can take up to a minute…');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
   }
   const result = await response.json().catch(() => ({}));
-  if (response.status === 401) {
+  if (response.status === 401 && endpoint !== '/api/auth/login') {
     logout(false);
     throw new Error('Your session has expired. Please sign in again.');
   }
@@ -139,7 +166,7 @@ loginForm.addEventListener('submit', async event => {
   const email = document.getElementById('loginEmail').value.trim();
   const pin = document.getElementById('loginPin').value;
   try {
-    const result = await apiRequest('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, pin }) });
+    const result = await apiRequest('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, pin }) }, 'loginStatus');
     if (!result.sessionToken) throw new Error('Login response did not contain a session token.');
     sessionToken = result.sessionToken;
     accountNumber = result.accountNumber;
@@ -170,7 +197,7 @@ registerForm.addEventListener('submit', async event => {
   const email = document.getElementById('registerEmail').value.trim();
   const pin = document.getElementById('registerPin').value;
   try {
-    const result = await apiRequest('/api/auth/register', { method: 'POST', body: JSON.stringify({ fullName, email, pin }) });
+    const result = await apiRequest('/api/auth/register', { method: 'POST', body: JSON.stringify({ fullName, email, pin }) }, 'registerStatus');
     registerForm.reset();
     showStatus('registerStatus', `${result.message} Your account number is ${result.accountNumber}. You can now sign in.`, 'success');
   } catch (error) {
@@ -325,7 +352,7 @@ async function logout(callBackend = true) {
   showMainView(loginView);
   if (callBackend && oldToken) {
     try {
-      await fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST', headers: { Authorization: `Bearer ${oldToken}` } });
+      await fetchWithTimeout(`${API_BASE_URL}/api/auth/logout`, { method: 'POST', headers: { Authorization: `Bearer ${oldToken}` } });
     } catch (error) { console.error('Logout request failed:', error); }
   }
 }
